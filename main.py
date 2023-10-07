@@ -1,10 +1,9 @@
-from PIL import Image 
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 import requests
-import img2pdf 
-import PyPDF2
-import shutil
 import json
 import os
+
 
 headers = {
         'authority': 'mangalivre.net',
@@ -54,51 +53,40 @@ def get_page(id_release):
 
 
 def save_chapter_pages(manga_name, chapter_number, pages):
-    # Create folder if not exists
-    folders = [
-        f"mangas/{manga_name}/{chapter_number}",
-        f"mangas/{manga_name}/{chapter_number}/imgs",
-        f"mangas/{manga_name}/{chapter_number}/pdfs"]
-    for folder in folders:
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+    
+    folder = f"mangas/{manga_name}"
+    if not os.path.exists(folder):
+        os.makedirs(folder)
             
-    merger = PyPDF2.PdfMerger()
+    pdfPath = f"{folder}/{manga_name}_{chapter_number}.pdf"
+    
+    width, height = A4
+    c = canvas.Canvas(pdfPath, pagesize=A4)
 
     for page in pages:
-        print(f"Baixando {page}")
+        #print(f"Baixando {page}")
         response = requests.get(page, headers=headers, data={})
         
         if response.status_code == 200:
-            imgPath = f"{folders[1]}/{page.split('/')[-1]}"
+            imgPath = f"{folder}/{page.split('/')[-1]}"
             
             if imgPath[-4:] != ".jpg" and imgPath[-4:] != ".png":
-                print('Arquivo não é uma imagem')
+                #print('Arquivo não é uma imagem')
                 continue
             
             with open(imgPath, 'wb') as f:
                 f.write(response.content)
             
-            pdfPath = f"{folders[2]}/{page.split('/')[-1][0:-4]}.pdf"
+            c.drawImage(imgPath, 0, 0, width=width, height=height)
+            c.showPage()
             
-            image = Image.open(imgPath) 
-            pdf_bytes = img2pdf.convert(image.filename) 
-            with open(pdfPath, 'wb') as file:
-                file.write(pdf_bytes) 
-            image.close() 
-                    
-            merger.append(pdfPath)
-            print("Arquivo pdf criado com sucesso!") 
+            os.remove(imgPath)
+            
         else:
             print(f"Erro ao baixar página {page} - " + response.text)
             
-    merged_pdf_path = f"{folders[0]}/{manga_name}_{chapter_number}.pdf"
-    with open(merged_pdf_path, 'wb') as merged_pdf:
-        merger.write(merged_pdf)
-        
-    merger.close()
-    shutil.rmtree(folders[1])
-    shutil.rmtree(folders[2])
+    
+    c.save()
 
 
 def main():
@@ -122,21 +110,19 @@ def main():
                 break
         chapter = input("Digite o capítulo inicial: ")
         chapter2 = input("Digite o capítulo final: ")
+        if chapter2 == "":
+            chapter2 = int(chapter)
+        print(f'Procurando capítulos de {chapter} a {chapter2}...')
         
         for chapter in range(int(chapter), int(chapter2) + 1):
             id_release = get_chapter(id_serie, str(chapter))
             pages = get_page(id_release)
-            print("====================== Páginas Encontradas =========================")
+            print(f"====================== Páginas Encontradas Capítulo {chapter} =========================")
             print(json.dumps(pages, indent=4))
+            print("Baixando...")
 
-            print("=================== Deseja baixar o capítulo? ======================")
-            print("1 - Sim")
-            print("2 - Não")
-            print("====================================================================")
-            option = "1"#input("Digite a opção: ")
-            if option == "1":
-                save_chapter_pages(name, str(chapter), pages)
-                print("Capítulo baixado com sucesso!")
+            save_chapter_pages(name, str(chapter), pages)
+            print("Capítulo baixado com sucesso!")
 
 
 if __name__ == "__main__":
