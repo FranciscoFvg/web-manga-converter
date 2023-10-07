@@ -72,6 +72,10 @@ def save_chapter_pages(manga_name, chapter_number, pages):
         if response.status_code == 200:
             imgPath = f"{folders[1]}/{page.split('/')[-1]}"
             
+            if imgPath[-4:] != ".jpg" and imgPath[-4:] != ".png":
+                print('Arquivo não é uma imagem')
+                continue
+            
             with open(imgPath, 'wb') as f:
                 f.write(response.content)
             
@@ -98,35 +102,41 @@ def save_chapter_pages(manga_name, chapter_number, pages):
 
 
 def main():
-    name = input("Digite o nome do manga: ")
-    mangas = search_manga(name)
+    while True:
+        name = input("Digite o nome do manga: ")
+        mangas = search_manga(name)
 
-    print("=================== Mangas Encontrados ======================")
-    if(mangas == False):
-        print("Nenhum manga encontrado")
+        print("=================== Mangas Encontrados ======================")
+        if(mangas == False):
+            print("Nenhum manga encontrado")
+            print("=============================================================")
+            exit()
+        for manga in mangas:
+            print(f"{manga.get('id_serie')} - {manga.get('name')}")
         print("=============================================================")
-        exit()
-    for manga in mangas:
-        print(f"{manga.get('id_serie')} - {manga.get('name')}")
-    print("=============================================================")
 
-    id_serie = input("Digite o id do manga: ")
-    chapter = input("Digite o capitulo: ")
+        id_serie = input("Digite o id do manga (número ao lado do nome): ")
+        for manga in mangas:
+            if manga.get('id_serie') == id_serie:
+                name = manga.get('name')
+                break
+        chapter = input("Digite o capítulo inicial: ")
+        chapter2 = input("Digite o capítulo final: ")
+        
+        for chapter in range(int(chapter), int(chapter2) + 1):
+            id_release = get_chapter(id_serie, str(chapter))
+            pages = get_page(id_release)
+            print("====================== Páginas Encontradas =========================")
+            print(json.dumps(pages, indent=4))
 
-    id_release = get_chapter(id_serie, chapter)
-    pages = get_page(id_release)
-    
-    print("=================== Páginas Encontradas ======================")
-    print(json.dumps(pages, indent=4))
-
-    print("=================== Deseja baixar o capítulo? ======================")
-    print("1 - Sim")
-    print("2 - Não")
-    print("=============================================================")
-    option = input("Digite a opção: ")
-    if option == "1":
-        save_chapter_pages(name, chapter, pages)
-        print("Capítulo baixado com sucesso!")
+            print("=================== Deseja baixar o capítulo? ======================")
+            print("1 - Sim")
+            print("2 - Não")
+            print("====================================================================")
+            option = "1"#input("Digite a opção: ")
+            if option == "1":
+                save_chapter_pages(name, str(chapter), pages)
+                print("Capítulo baixado com sucesso!")
 
 
 if __name__ == "__main__":
