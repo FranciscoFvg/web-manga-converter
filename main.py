@@ -1,5 +1,6 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from PIL import Image
 import requests
 import json
 import os
@@ -91,9 +92,21 @@ def save_chapter_pages(manga_name, chapter_number, pages):
             
             with open(imgPath, 'wb') as f:
                 f.write(response.content)
-            
-            c.drawImage(imgPath, 0, 0, width=width, height=height)
-            c.showPage()
+                
+            with Image.open(imgPath) as img:
+                
+                iwidth, iheight = img.size
+
+                aspect_ratio = iwidth / iheight
+                
+                if aspect_ratio > 1:
+                    c.drawImage(imgPath, 0, 0, width=width*2, height=height)
+                    c.showPage()
+                    c.drawImage(imgPath, -width, 0, width=width*2, height=height)
+                    c.showPage()
+                else:
+                    c.drawImage(imgPath, 0, 0, width=width, height=height)
+                    c.showPage()
             
             os.remove(imgPath)
             
