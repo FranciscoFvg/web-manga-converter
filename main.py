@@ -2,9 +2,11 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from PIL import Image
 import requests
+import zipfile
 import json
 import os
 
+session_gofile_files = []
 
 headers = {
         'authority': 'mangalivre.net',
@@ -20,14 +22,23 @@ def get_gofile_server():
     response = requests.get(url, data={})
     return response.json().get("data").get("server")
 
-def upload_to_gofile_and_get_link(pdfPath):
+def upload_to_gofile_and_get_link(zipPath):
     url = f"https://{get_gofile_server()}.gofile.io/uploadFile"
-    
+
+    with zipfile.ZipFile(zipPath, 'w') as zipf:
+        for file in session_gofile_files:
+            zipf.write(file, os.path.basename(file))
+            
+    file = open(zipPath, 'rb')
     files = {
-        'file': open(pdfPath, 'rb')
+        'file': (zipPath.split('/')[-1], file, 'application/zip')
     }
+
+    response = requests.post(url, files=files, data={})
     
-    response = requests.post( url, files=files, data={})
+    file.close()
+    os.remove(zipPath)
+
     return response.json().get("data").get("downloadPage")
 
 def search_manga(name):
@@ -115,13 +126,9 @@ def save_chapter_pages(manga_name, chapter_number, pages):
             
     c.save()
     
-    print('Criando link de download...')
-    download_link = upload_to_gofile_and_get_link(pdfPath)
-    print(f'link de download (Capitulo {chapter_number}): {download_link}')
+    session_gofile_files.append(pdfPath)
     
     #os.remove(pdfPath)
-    
-    return chapter_number, download_link
 
 
 def main():
@@ -149,20 +156,21 @@ def main():
             chapter2 = int(chapter)
         print(f'Procurando capítulos de {chapter} a {chapter2}...')
         
-        download_links = []
-        
-        for chapter in range(int(chapter), int(chapter2) + 1):
-            id_release = get_chapter(id_serie, str(chapter))
+        for chapterd in range(int(chapter), int(chapter2) + 1):
+            id_release = get_chapter(id_serie, str(chapterd))
             pages = get_page(id_release)
-            print(f"====================== Páginas Encontradas Capítulo {chapter} =========================")
+            print(f"====================== Páginas Encontradas Capítulo {chapterd} =========================")
             print(json.dumps(pages, indent=4))
             print("Baixando...")
 
-            download_links.append(save_chapter_pages(name, str(chapter), pages))
+            save_chapter_pages(name, str(chapterd), pages)
             print("Capítulo baixado com sucesso!")
             
-        for download_link in download_links:
-            print(f"Link de download (Capítulo {download_link[0]}): {download_link[1]}")
+        print("=============================================================")
+        
+        print('Criando link de download...')
+        link = upload_to_gofile_and_get_link(f'mangas/{name}/{name}_{chapter}_{chapter2}.zip')
+        print(f"Link de download: {link}")
 
 
 if __name__ == "__main__":
